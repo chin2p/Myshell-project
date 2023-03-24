@@ -55,19 +55,19 @@ void batch_mode(FILE *fp) {
 
 //after doing pwd code exits itself, doesn't keep getting input.
 //cd is also not changing directory. I believe we have to use chdir() to get the cd command working, cd takes one argument
-//pwd works but code exits out. ---(1) error line  
+
 //for pwd we have to use getcwd() and pwd takes no arguments
 void interactive_mode() {
-    printf("Welcome to mysh!\n");
+    printf("Welcome to my shell!\n");
     while (1) {
-        printf("mysh> "); //we gotta use write() to print out mysh> at the same line of getting input (input would look like: mysh> pwd)
+        write(STDOUT_FILENO, "mysh> ", 6);
 
         char command[1024];
         int command_length = 0;
         char ch;
         ssize_t read_result;
 
-        while ((read_result = read(STDIN_FILENO, &ch, 1)) > 0) {
+        while ((read_result = read(STDIN_FILENO, &ch, 128)) > 0) {
             if (ch == '\n') {
                 break;
             }
@@ -78,8 +78,9 @@ void interactive_mode() {
             perror("Error reading from stdin");  //---(1)
             break;
         }
-
+        
         if (read_result == 0) { // EOF
+            write(STDOUT_FILENO, "\n", 1);
             break;
         }
 
@@ -88,6 +89,7 @@ void interactive_mode() {
         if (strcmp(command, "exit") == 0) {
             break;
         }
+
 
         process_line(command);
     }
