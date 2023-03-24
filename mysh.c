@@ -52,6 +52,10 @@ void batch_mode(FILE *fp) {
     }
 }
 
+
+//cd works but prints an error but it still works
+//exit command is giving errors but it is working
+//eof works fine
 void interactive_mode() {
     write(STDOUT_FILENO, "Welcome to mysh!\n", 17);
     while (1) {
