@@ -117,7 +117,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
             in_fd = open(args[i + 1], O_RDONLY);
             if (in_fd < 0) {
                 perror("Error opening input file");
-                exit(1);
+                return;
             }
             i++;
         } else if (strcmp(args[i], ">") == 0) {
@@ -125,7 +125,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
             out_fd = open(args[i + 1], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
             if (out_fd < 0) {
                 perror("Error opening output file");
-                exit(1);
+                return;
             }
             i++;
         }
@@ -155,10 +155,10 @@ void execute_command(char** args, int in_fd, int out_fd) {
             execvp(args[0], args);
         }
         perror("Error executing command");
-        exit(1);
+        return;
     } else if (pid < 0) {
         perror("Error forking");
-        exit(1);
+        return;
     } else {
         close(in_fd);
         close(out_fd);
@@ -218,22 +218,26 @@ void process_line(char* line) {
 
     // Handle special built-in commands
     if (strcmp(args[0], "cd") == 0) {
-        if (num_args != 2) {
+        if (num_args > 2) {
             fprintf(stderr, "Error: cd takes exactly one argument\n");
-            exit(1);
+            return;
         }
+        else if (num_args == 1){ // no argument provided
+            chdir(getenv("HOME")); //change to home directory
+            return;
+        }
+
         if (chdir(args[1]) != 0) {
             perror("Error changing directory");
-            exit(1);
+            return;
         }
-        return;
     }
 
     if (strcmp(args[0], "pwd") == 0) {
         char cwd[1024];
         if (getcwd(cwd, sizeof(cwd)) == NULL) {
             perror("Error getting current directory");
-            exit(1);
+            return;
         }
         printf("%s\n", cwd);
         return;
