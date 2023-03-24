@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <fnmatch.h>
+#include <glob.h>
 
 void process_line(char* line);
 const char *search_paths[] = {
@@ -39,7 +39,7 @@ void batch_mode(FILE *fp) {
         } else {
             line[index++] = c;
             if (index >= sizeof(line)) {
-                fprintf(stderr, "Error: input line too long\n");
+                puts("Error: input line too long");
                 break;
             }
         }
@@ -175,37 +175,43 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
         pattern = last_slash + 1;
     }
 
-    DIR* dir = opendir(dir_path);
-    if (dir == NULL) {
+    glob_t globbuf;
+    int result = glob(dir_path, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR,
+                      NULL, &globbuf);
+
+    if (result != 0 && result != GLOB_NOMATCH) {
         perror("Error opening directory");
         return;
     }
 
-    struct dirent* entry;
-
-    while ((entry = readdir(dir)) != NULL) {
-        if (fnmatch(pattern, entry->d_name, 0) == 0 && !(pattern[0] == '*' && entry->d_name[0] == '.')) {
-            char* matched_path;
-            if (last_slash != NULL) {
-                int len = snprintf(NULL, 0, "%s/%s", dir_path, entry->d_name);
-                char* matched_path = malloc(len + 1);
-                if (matched_path == NULL) {
-                    perror("Memory allocation error");
-                    return;
-                }
-                sprintf(matched_path, "%s/%s", dir_path, entry->d_name);
-            } else {
-                matched_path = strdup(entry->d_name);
-            }
-            args[*num_args] = matched_path;
+    for(size_t i=0; i<globbuf.gl_pathc; ++i){
+        char const *const matched_name=globbuf.gl_pathv[i];
+        //skip directories and hidden files
+        if(matched_name[strlen(matched_name)-1]!='/'
+           && !(pattern[0]== '*' && matched_name[strlen(dir_path)+1]=='.')){
+            args[*num_args]=strdup(matched_name);//In case of memory allocation errors
             (*num_args)++;
         }
     }
 
-    closedir(dir);
+    globfree(&globbuf);
 }
 
 void process_line(char* line) {
+    // Check if line is empty
+    int len = strlen(line);
+    int i;
+    for (i = 0; i < len; i++) {
+        char c = line[i];
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+            break;
+        }
+    }
+    // Return error and ask for new input
+    if (i == len) {
+        puts("Error: no command entered");
+        return;
+    }
     char* args[1024];
     int num_args = 0;
 
@@ -242,6 +248,8 @@ void process_line(char* line) {
         printf("%s\n", cwd);
         return;
     }
+
+
 
     int in_fd = STDIN_FILENO;
     int out_fd = STDOUT_FILENO;
