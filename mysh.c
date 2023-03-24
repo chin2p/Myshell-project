@@ -20,7 +20,7 @@ const char *search_paths[] = {
         "/bin/"
 };
 
-
+//batch mode seems to be working fine for now, will do more testing
 
 void batch_mode(FILE *fp) {
     char line[1024];
@@ -52,10 +52,15 @@ void batch_mode(FILE *fp) {
     }
 }
 
+
+//after doing pwd code exits itself, doesn't keep getting input.
+//cd is also not changing directory. I believe we have to use chdir() to get the cd command working, cd takes one argument
+//pwd works but code exits out. ---(1) error line  
+//for pwd we have to use getcwd() and pwd takes no arguments
 void interactive_mode() {
     printf("Welcome to mysh!\n");
     while (1) {
-        printf("mysh> ");
+        printf("mysh> "); //we gotta use write() to print out mysh> at the same line of getting input (input would look like: mysh> pwd)
 
         char command[1024];
         int command_length = 0;
@@ -70,7 +75,7 @@ void interactive_mode() {
         }
 
         if (read_result == -1) {
-            perror("Error reading from stdin");
+            perror("Error reading from stdin");  //---(1)
             break;
         }
 
@@ -89,25 +94,6 @@ void interactive_mode() {
     printf("Goodbye!\n");
 }
 
-int main(int argc, char** argv) {
-    if (argc > 1) {
-        int fd = open(argv[1], O_RDONLY);
-        if (fd == -1) {
-            perror("Error opening file");
-            return 1;
-        }
-        // redirect standard input to the opened file descriptor
-        dup2(fd, STDIN_FILENO);
-
-        batch_mode(stdin);
-
-        close(fd);      // close the opened file descriptor
-    } else {
-        interactive_mode();
-    }
-
-    return 0;
-}
 
 char *find_command_path(const char *command) {
     struct stat sb;
@@ -283,4 +269,30 @@ void process_line(char* line) {
         args[num_args] = NULL;
         execute_command(args, in_fd, out_fd);
     }
+}
+
+
+
+
+//main func
+
+
+int main(int argc, char** argv) {
+    if (argc > 1) {
+        int fd = open(argv[1], O_RDONLY);
+        if (fd == -1) {
+            perror("Error opening file");
+            return 1;
+        }
+        // redirect standard input to the opened file descriptor
+        dup2(fd, STDIN_FILENO);
+
+        batch_mode(stdin);
+
+        close(fd);      // close the opened file descriptor
+    } else {
+        interactive_mode();
+    }
+
+    return 0;
 }
