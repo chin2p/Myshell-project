@@ -52,13 +52,8 @@ void batch_mode(FILE *fp) {
     }
 }
 
-
-//after doing pwd code exits itself, doesn't keep getting input.
-//cd is also not changing directory. I believe we have to use chdir() to get the cd command working, cd takes one argument
-
-//for pwd we have to use getcwd() and pwd takes no arguments
 void interactive_mode() {
-    printf("Welcome to my shell!\n");
+    write(STDOUT_FILENO, "Welcome to mysh!\n", 17);
     while (1) {
         write(STDOUT_FILENO, "mysh> ", 6);
 
@@ -67,7 +62,7 @@ void interactive_mode() {
         char ch;
         ssize_t read_result;
 
-        while ((read_result = read(STDIN_FILENO, &ch, 128)) > 0) {
+        while ((read_result = read(STDIN_FILENO, &ch, 1)) > 0) {
             if (ch == '\n') {
                 break;
             }
@@ -75,12 +70,11 @@ void interactive_mode() {
         }
 
         if (read_result == -1) {
-            perror("Error reading from stdin");  //---(1)
+            perror("Error reading from stdin");
             break;
         }
-        
+
         if (read_result == 0) { // EOF
-            write(STDOUT_FILENO, "\n", 1);
             break;
         }
 
@@ -90,10 +84,9 @@ void interactive_mode() {
             break;
         }
 
-
         process_line(command);
     }
-    printf("Goodbye!\n");
+    write(STDOUT_FILENO, "Goodbye!\n", 9);
 }
 
 
@@ -215,6 +208,37 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
 void process_line(char* line) {
     char* args[1024];
     int num_args = 0;
+
+    char* arg = strtok(line, " \t");
+    while (arg != NULL) {
+        args[num_args++] = arg;
+        arg = strtok(NULL, " \t");
+    }
+    args[num_args] = NULL;
+
+    // Handle special built-in commands
+    if (strcmp(args[0], "cd") == 0) {
+        if (num_args != 2) {
+            fprintf(stderr, "Error: cd takes exactly one argument\n");
+            exit(1);
+        }
+        if (chdir(args[1]) != 0) {
+            perror("Error changing directory");
+            exit(1);
+        }
+        return;
+    }
+
+    if (strcmp(args[0], "pwd") == 0) {
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            perror("Error getting current directory");
+            exit(1);
+        }
+        printf("%s\n", cwd);
+        return;
+    }
+
     int in_fd = STDIN_FILENO;
     int out_fd = STDOUT_FILENO;
     int pipe_fds[2] = {-1, -1};
