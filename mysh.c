@@ -212,6 +212,20 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     globfree(&globbuf);
 }
 
+void execute_echo(char** args) {
+    // Check if there are any arguments to print
+    if (args[1] == NULL) {
+        printf("\n");
+        return;
+    }
+
+    // Loop through each argument and print it
+    for (int i = 1; args[i] != NULL; i++) {
+        printf("%s ", args[i]);
+    }
+    printf("\n");
+}
+
 void process_line(char* line) {
     // Check if line is empty
     int len = strlen(line);
@@ -238,6 +252,11 @@ void process_line(char* line) {
     args[num_args] = NULL;
 
     // Handle special built-in commands
+        if (num_args > 0 && strcmp(args[0], "echo") == 0) {
+        execute_echo(args);
+        return;
+    }
+    
 if (strcmp(args[0], "cd") == 0) {
     if (num_args > 2) {
         fprintf(stderr, "Error: cd takes exactly one argument\n");
@@ -272,6 +291,7 @@ if (strcmp(args[0], "pwd") == 0) {
     printf("%s\n", cwd);
     return;
 }
+
 
 
 
