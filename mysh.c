@@ -74,7 +74,6 @@ void interactive_mode() {
         }
 
         if (read_result == -1) {
-            perror("Error reading from stdin");
             break;
         }
 
@@ -85,7 +84,7 @@ void interactive_mode() {
         command[command_length] = '\0';
 
         if (strcmp(command, "exit") == 0) {
-            break;
+            exit(0);
         }
 
         process_line(command);
@@ -117,6 +116,10 @@ void execute_command(char** args, int in_fd, int out_fd) {
     int i = 0;
     while (args[i] != NULL) {
         if (strcmp(args[i], "<") == 0) {
+            if (args[i + 1] == NULL) {
+                fprintf(stderr, "Error: missing filename after <\n");
+                return;
+            }
             args[i] = NULL;
             in_fd = open(args[i + 1], O_RDONLY);
             if (in_fd < 0) {
@@ -125,6 +128,10 @@ void execute_command(char** args, int in_fd, int out_fd) {
             }
             i++;
         } else if (strcmp(args[i], ">") == 0) {
+            if (args[i + 1] == NULL) {
+                fprintf(stderr, "Error: missing filename after >\n");
+                return;
+            }
             args[i] = NULL;
             out_fd = open(args[i + 1], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
             if (out_fd < 0) {
@@ -146,6 +153,10 @@ void execute_command(char** args, int in_fd, int out_fd) {
             close(out_fd);
         }
         char *command_path = find_command_path(args[0]);
+        if (strcmp(args[0], "cd") == 0) {
+            chdir(args[1]);
+            return;
+        }
         if (command_path != NULL) {
             execv(command_path, args);
             free(command_path);
@@ -227,21 +238,23 @@ void process_line(char* line) {
     args[num_args] = NULL;
 
     // Handle special built-in commands
-    if (strcmp(args[0], "cd") == 0) {
-        if (num_args > 2) {
-            fprintf(stderr, "Error: cd takes exactly one argument\n");
-            return;
-        }
-        else if (num_args == 1){ // no argument provided
-            chdir(getenv("HOME")); //change to home directory
-            return;
-        }
-
-        if (chdir(args[1]) != 0) {
+if (strcmp(args[0], "cd") == 0) {
+    if (num_args > 2) {
+        fprintf(stderr, "Error: cd takes exactly one argument\n");
+        return;
+    }
+    else if (num_args == 1){ // no argument provided
+        if (chdir(getenv("HOME")) != 0) {
             perror("Error changing directory");
             return;
         }
+        return;
     }
+    if (chdir(args[1]) != 0) {
+        perror("Error changing directory");
+        return;
+    }
+}
 
     if (strcmp(args[0], "pwd") == 0) {
         char cwd[1024];
