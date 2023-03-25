@@ -256,15 +256,22 @@ if (strcmp(args[0], "cd") == 0) {
     }
 }
 
-    if (strcmp(args[0], "pwd") == 0) {
-        char cwd[1024];
-        if (getcwd(cwd, sizeof(cwd)) == NULL) {
-            perror("Error getting current directory");
-            return;
-        }
-        printf("%s\n", cwd);
+if (strcmp(args[0], "pwd") == 0) {
+    // Check if any arguments were provided
+    if (num_args > 1) {
+        fprintf(stderr, "Error: pwd does not accept arguments\n");
         return;
     }
+
+    // Get current working directory and print it
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        perror("Error getting current directory");
+        return;
+    }
+    printf("%s\n", cwd);
+    return;
+}
 
 
 
