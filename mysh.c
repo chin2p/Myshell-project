@@ -84,7 +84,7 @@ void interactive_mode() {
         command[command_length] = '\0';
 
         if (strcmp(command, "exit") == 0) {
-            exit(0);
+            break;
         }
 
         process_line(command);
