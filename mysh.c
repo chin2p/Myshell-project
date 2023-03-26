@@ -53,9 +53,11 @@ void batch_mode(FILE *fp) {
 }
 
 
-//cd works but prints an error but it still works
-//exit command is giving errors but it is working
-//eof works fine
+//everything is good
+//although we need to have this thing
+//whenever we do cd whateverdirectorythatdoesn'texist  it should print an error message then
+// do this in the write prompt
+// "!mysh> " instead of regular "mysh> "
 void interactive_mode() {
     write(STDOUT_FILENO, "Welcome to mysh!\n", 17);
     while (1) {
