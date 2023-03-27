@@ -127,7 +127,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
             }
         }
         if (chdir(path) != 0) {
-            perror("mysh");
+            perror("cd");
         }
         return;
     }
@@ -140,6 +140,10 @@ void execute_command(char** args, int in_fd, int out_fd) {
             perror("pwd");
         }
         return;
+    }
+    
+        if (strcmp(args[0], "exit") == 0) {
+        exit(0); // terminate the program
     }
     
     pid_t pid = fork();
