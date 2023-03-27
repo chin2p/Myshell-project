@@ -17,7 +17,8 @@ const char *search_paths[] = {
         "/usr/sbin/",
         "/usr/bin/",
         "/sbin/",
-        "/bin/"
+        "/bin/",
+        NULL
 };
 
 //batch mode seems to be working fine for now, will do more testing
@@ -99,7 +100,7 @@ char *find_command_path(const char *command) {
     struct stat sb;
     char *path = NULL;
 
-    for (int i = 0; i < sizeof(search_paths) / sizeof(search_paths[0]); ++i) {
+    for (int i = 0; search_paths[i] != NULL; ++i) {
         path = malloc(strlen(search_paths[i]) + strlen(command) + 1);
         strcpy(path, search_paths[i]);
         strcat(path, command);
@@ -109,77 +110,87 @@ char *find_command_path(const char *command) {
         }
 
         free(path);
+        path = NULL;
     }
 
     return NULL;
 }
 
 void execute_command(char** args, int in_fd, int out_fd) {
-    int i = 0;
-    while (args[i] != NULL) {
-        if (strcmp(args[i], "<") == 0) {
-            if (args[i + 1] == NULL) {
-                fprintf(stderr, "Error: missing filename after <\n");
+    if (strcmp(args[0], "cd") == 0) {
+        char *path = args[1];
+        if (path == NULL) {
+            path = getenv("HOME");
+            if (path == NULL) {
+                fprintf(stderr, "mysh: HOME environment variable not set\n");
                 return;
             }
-            args[i] = NULL;
-            in_fd = open(args[i + 1], O_RDONLY);
-            if (in_fd < 0) {
-                perror("Error opening input file");
-                return;
-            }
-            i++;
-        } else if (strcmp(args[i], ">") == 0) {
-            if (args[i + 1] == NULL) {
-                fprintf(stderr, "Error: missing filename after >\n");
-                return;
-            }
-            args[i] = NULL;
-            out_fd = open(args[i + 1], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP);
-            if (out_fd < 0) {
-                perror("Error opening output file");
-                return;
-            }
-            i++;
         }
-        i++;
+        if (chdir(path) != 0) {
+            perror("mysh");
+        }
+        return;
+    }
+
+    if (strcmp(args[0], "pwd") == 0) {
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            fprintf(stdout, "%s\n", cwd);
+        } else {
+            perror("pwd");
+        }
+        return;
     }
     pid_t pid = fork();
-    if (pid == 0) {
+
+    if (pid == -1) {
+        perror("fork");
+        exit(0); // continue asking for input
+    }
+
+    if (pid == 0) {  // child process
+        // Redirect input and output
         if (in_fd != STDIN_FILENO) {
             dup2(in_fd, STDIN_FILENO);
             close(in_fd);
         }
+
         if (out_fd != STDOUT_FILENO) {
             dup2(out_fd, STDOUT_FILENO);
             close(out_fd);
         }
-        char *command_path = find_command_path(args[0]);
-        if (strcmp(args[0], "cd") == 0) {
-            chdir(args[1]);
-            return;
-        }
-        if (command_path != NULL) {
-            execv(command_path, args);
-            free(command_path);
-        } else {
-            execvp(args[0], args);
+
+        // Search for the command in the paths
+        char *path = find_command_path(args[0]);
+
+        if (path == NULL) {
+            fprintf(stderr, "Command not found: %s\n", args[0]);
+            return; // continue asking for input
         }
 
-        if (strchr(args[0], '/') != NULL) {
-            execv(args[0], args);
-        } else {
-            execvp(args[0], args);
-        }
-        perror("Error executing command");
-        return;
-    } else if (pid < 0) {
-        perror("Error forking");
-        return;
-    } else {
-        close(in_fd);
-        close(out_fd);
-        waitpid(pid, NULL, 0);
+        // Execute the command
+        execv(path, args);
+
+        // execv only returns if there was an error
+        perror("execv");
+        return; // continue asking for input
+    }
+
+    // parent process
+    int status;
+    if (waitpid(pid, &status, 0) == -1) {
+
+        return; // continue asking for input
+    }
+
+    if (!WIFEXITED(status)) {
+
+        return; // continue asking for input
+    }
+
+    if (WEXITSTATUS(status) != 0) {
+
+        return; // continue asking for input
     }
 }
 
@@ -214,19 +225,6 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     globfree(&globbuf);
 }
 
-void execute_echo(char** args) {
-    // Check if there are any arguments to print
-    if (args[1] == NULL) {
-        printf("\n");
-        return;
-    }
-
-    // Loop through each argument and print it
-    for (int i = 1; args[i] != NULL; i++) {
-        printf("%s ", args[i]);
-    }
-    printf("\n");
-}
 
 void process_line(char* line) {
     // Check if line is empty
@@ -243,59 +241,12 @@ void process_line(char* line) {
         puts("Error: no command entered");
         return;
     }
+
     char* args[1024];
-    int num_args = 0;
+    int arg_index = 0;
+    int is_arg = 1;
 
-    char* arg = strtok(line, " \t");
-    while (arg != NULL) {
-        args[num_args++] = arg;
-        arg = strtok(NULL, " \t");
-    }
-    args[num_args] = NULL;
-
-    // Handle special built-in commands
-        if (num_args > 0 && strcmp(args[0], "echo") == 0) {
-        execute_echo(args);
-        return;
-    }
     
-if (strcmp(args[0], "cd") == 0) {
-    if (num_args > 2) {
-        fprintf(stderr, "Error: cd takes exactly one argument\n");
-        return;
-    }
-    else if (num_args == 1){ // no argument provided
-        if (chdir(getenv("HOME")) != 0) {
-            perror("Error changing directory");
-            return;
-        }
-        return;
-    }
-    if (chdir(args[1]) != 0) {
-        perror("Error changing directory");
-        return;
-    }
-}
-
-if (strcmp(args[0], "pwd") == 0) {
-    // Check if any arguments were provided
-    if (num_args > 1) {
-        fprintf(stderr, "Error: pwd does not accept arguments\n");
-        return;
-    }
-
-    // Get current working directory and print it
-    char cwd[1024];
-    if (getcwd(cwd, sizeof(cwd)) == NULL) {
-        perror("Error getting current directory");
-        return;
-    }
-    printf("%s\n", cwd);
-    return;
-}
-
-
-
 
     int in_fd = STDIN_FILENO;
     int out_fd = STDOUT_FILENO;
@@ -309,6 +260,7 @@ if (strcmp(args[0], "pwd") == 0) {
                 return;
             }
             out_fd = pipe_fds[1];
+            is_arg = 0;
         } else if (strcmp(token, "<") == 0) {
             token = strtok(NULL, " ");
             if (token == NULL) {
@@ -320,6 +272,7 @@ if (strcmp(args[0], "pwd") == 0) {
                 perror("Error opening file for input");
                 return;
             }
+            is_arg = 0;
         } else if (strcmp(token, ">") == 0) {
             token = strtok(NULL, " ");
             if (token == NULL) {
@@ -331,16 +284,19 @@ if (strcmp(args[0], "pwd") == 0) {
                 perror("Error opening file for output");
                 return;
             }
+            is_arg = 0;
         } else if (strchr(token, '*') != NULL) {
-            handle_wildcard(token, args, &num_args);
+            handle_wildcard(token, args, &arg_index);
+            is_arg = 0;
         } else {
-            args[num_args++] = token;
+            args[arg_index++] = token;
+            is_arg = 1;
         }
 
-        if (out_fd != STDOUT_FILENO) {
-            args[num_args] = NULL;
+        if (out_fd != STDOUT_FILENO && !is_arg) {
+            args[arg_index] = NULL;
             execute_command(args, in_fd, out_fd);
-            num_args = 0;
+            arg_index = 0;
             in_fd = pipe_fds[0];
             out_fd = STDOUT_FILENO;
             close(pipe_fds[1]);
@@ -349,8 +305,8 @@ if (strcmp(args[0], "pwd") == 0) {
         token = strtok(NULL, " ");
     }
 
-    if (num_args > 0) {
-        args[num_args] = NULL;
+    if (arg_index > 0) {
+        args[arg_index] = NULL;
         execute_command(args, in_fd, out_fd);
     }
 }
