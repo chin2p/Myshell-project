@@ -53,12 +53,27 @@ void batch_mode(FILE *fp) {
     }
 }
 
-
+/*
 //everything is good
 //although we need to have this thing
 //whenever we do cd whateverdirectorythatdoesn'texist  it should print an error message then
 // do this in the write prompt
 // "!mysh> " instead of regular "mysh> "
+
+//new testing
+//wildcard stuff isn't working properly.
+//one of the testing for redirection also is bit buggy. "echo > baz foo bar"
+echo foo bar > baz
+echo foo > baz bar
+echo > baz foo bar
+These are all same
+
+Next thing is when we do a wrong command like "l"
+it says, command not found: l
+then if we type exit or EOF
+it still takes input again and if u do exit again then it exits the program.
+*/
+
 void interactive_mode() {
     write(STDOUT_FILENO, "Welcome to mysh!\n", 17);
     while (1) {
