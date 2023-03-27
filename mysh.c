@@ -229,7 +229,6 @@ void process_line(char* line) {
     }
     // Return error and ask for new input
     if (i == len) {
-        puts("Error: no command entered");
         return;
     }
 
