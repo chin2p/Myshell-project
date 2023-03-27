@@ -141,11 +141,12 @@ void execute_command(char** args, int in_fd, int out_fd) {
         }
         return;
     }
+    
     pid_t pid = fork();
 
     if (pid == -1) {
         perror("fork");
-        exit(0); // continue asking for input
+        exit(1); // continue asking for input
     }
 
     if (pid == 0) {  // child process
@@ -177,21 +178,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
     }
 
     // parent process
-    int status;
-    if (waitpid(pid, &status, 0) == -1) {
-
-        return; // continue asking for input
-    }
-
-    if (!WIFEXITED(status)) {
-
-        return; // continue asking for input
-    }
-
-    if (WEXITSTATUS(status) != 0) {
-
-        return; // continue asking for input
-    }
+    wait(NULL);
 }
 
 void handle_wildcard(char* pattern, char** args, int* num_args) {
