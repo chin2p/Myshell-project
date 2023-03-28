@@ -59,7 +59,6 @@ void batch_mode(FILE *fp) {
 //whenever we do cd whateverdirectorythatdoesn'texist  it should print an error message then
 // do this in the write prompt
 // "!mysh> " instead of regular "mysh> "
-
 //new testing
 //wildcard stuff isn't working properly.
 //one of the testing for redirection also is bit buggy. "echo > baz foo bar"
@@ -67,7 +66,6 @@ echo foo bar > baz
 echo foo > baz bar
 echo > baz foo bar
 These are all same
-
 Next thing is when we do a wrong command like "l"
 it says, command not found: l
 then if we type exit or EOF
@@ -157,7 +155,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
         return;
     }
     
-        if (strcmp(args[0], "exit") == 0) {
+    if (strcmp(args[0], "exit") == 0) {
         exit(0); // terminate the program
     }
     
@@ -165,7 +163,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
 
     if (pid == -1) {
         perror("fork");
-        exit(1); // continue asking for input
+        return; // continue asking for input
     }
 
     if (pid == 0) {  // child process
@@ -185,7 +183,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
 
         if (path == NULL) {
             fprintf(stderr, "Command not found: %s\n", args[0]);
-            return; // continue asking for input
+            exit(1); 
         }
 
         // Execute the command
@@ -193,7 +191,8 @@ void execute_command(char** args, int in_fd, int out_fd) {
 
         // execv only returns if there was an error
         perror("execv");
-        return; // continue asking for input
+        exit(1); // continue asking for input
+        
     }
 
     // parent process
@@ -210,7 +209,7 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     }
 
     glob_t globbuf;
-    int result = glob(dir_path, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR,
+    int result = glob(pattern, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR,
                       NULL, &globbuf);
 
     if (result != 0 && result != GLOB_NOMATCH) {
@@ -218,12 +217,12 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
         return;
     }
 
-    for(size_t i=0; i<globbuf.gl_pathc; ++i){
-        char const *const matched_name=globbuf.gl_pathv[i];
-        //skip directories and hidden files
-        if(matched_name[strlen(matched_name)-1]!='/'
-           && !(pattern[0]== '*' && matched_name[strlen(dir_path)+1]=='.')){
-            args[*num_args]=strdup(matched_name);//In case of memory allocation errors
+    for (size_t i = 0; i < globbuf.gl_pathc; ++i) {
+        char const *const matched_name = globbuf.gl_pathv[i];
+        // skip directories and hidden files
+        if (matched_name[strlen(matched_name) - 1] != '/' &&
+            !(pattern[0] == '*' && matched_name[strlen(dir_path) + 1] == '.')) {
+            args[*num_args] = strdup(matched_name); // In case of memory allocation errors
             (*num_args)++;
         }
     }
@@ -247,11 +246,11 @@ void process_line(char* line) {
         return;
     }
 
+    
+
     char* args[1024];
     int arg_index = 0;
     int is_arg = 1;
-
-    
 
     int in_fd = STDIN_FILENO;
     int out_fd = STDOUT_FILENO;
