@@ -10,7 +10,7 @@
 #include <dirent.h>
 #include <glob.h>
 
-int error = 0;
+int error = 0; //track the error
 
 void process_line(char* line);
 const char *search_paths[] = {
@@ -55,6 +55,15 @@ void batch_mode(FILE *fp) {
     }
 }
 
+
+/*
+//wildcard stuff isn't working properly.
+//one of the testing for redirection also is bit buggy. "echo > baz foo bar"
+echo foo bar > baz
+echo foo > baz bar
+echo > baz foo bar
+These are all same
+*/
 
 
 void interactive_mode() {
@@ -128,6 +137,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
             path = getenv("HOME");
             if (path == NULL) {
                 fprintf(stderr, "mysh: HOME environment variable not set\n");
+                error = 1;
                 return;
             }
         }
@@ -179,9 +189,10 @@ void execute_command(char** args, int in_fd, int out_fd) {
         char *path = find_command_path(args[0]);
 
         if (path == NULL) {
-            fprintf(stderr, "Command not found: %s\n", args[0]);
-            error = 1;
             
+            //fprintf(stderr, "Command not found: %s\n", args[0]);
+            perror("command not found");
+            error = 1;
             exit(1); 
         }
 
