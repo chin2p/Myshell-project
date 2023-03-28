@@ -57,7 +57,7 @@ void batch_mode(FILE *fp) {
 
 
 /*
-//wildcard stuff isn't working properly.
+
 //one of the testing for redirection also is bit buggy. "echo > baz foo bar"
 echo foo bar > baz
 echo foo > baz bar
@@ -69,6 +69,7 @@ These are all same
 void interactive_mode() {
     write(STDOUT_FILENO, "Welcome to mysh!\n", 17);
     while (1) {
+        
         if (error) {
             write(STDOUT_FILENO, "!mysh> ", 7);
             error = 0;
@@ -91,7 +92,7 @@ void interactive_mode() {
 
         if (read_result == -1) {
             error = 1;
-            break;
+            exit(1);
         }
 
         if (read_result == 0) { // EOF
@@ -105,6 +106,7 @@ void interactive_mode() {
         }
 
         process_line(command);
+        
     }
     write(STDOUT_FILENO, "Goodbye!\n", 9);
 }
@@ -190,12 +192,11 @@ void execute_command(char** args, int in_fd, int out_fd) {
 
         if (path == NULL) {
             
-            //fprintf(stderr, "Command not found: %s\n", args[0]);
-            perror("command not found");
+            fprintf(stderr, "Command not found: %s\n", args[0]);
             error = 1;
-            exit(1); 
+            exit(1);
         }
-
+        
         // Execute the command
         execv(path, args);
 
@@ -205,9 +206,15 @@ void execute_command(char** args, int in_fd, int out_fd) {
         exit(1); // continue asking for input
         
     }
-
     // parent process
-    wait(NULL);
+    int status;
+    wait(&status);
+    
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+        error = 1;
+    }
+   
+    
 }
 
 void handle_wildcard(char* pattern, char** args, int* num_args) {
@@ -225,6 +232,7 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
 
     if (result != 0 && result != GLOB_NOMATCH) {
         perror("Error opening directory");
+        error = 1;
         return;
     }
 
