@@ -209,7 +209,7 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     }
 
     glob_t globbuf;
-    int result = glob(dir_path, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR,
+    int result = glob(pattern, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR,
                       NULL, &globbuf);
 
     if (result != 0 && result != GLOB_NOMATCH) {
@@ -217,12 +217,12 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
         return;
     }
 
-    for(size_t i=0; i<globbuf.gl_pathc; ++i){
-        char const *const matched_name=globbuf.gl_pathv[i];
-        //skip directories and hidden files
-        if(matched_name[strlen(matched_name)-1]!='/'
-           && !(pattern[0]== '*' && matched_name[strlen(dir_path)+1]=='.')){
-            args[*num_args]=strdup(matched_name);//In case of memory allocation errors
+    for (size_t i = 0; i < globbuf.gl_pathc; ++i) {
+        char const *const matched_name = globbuf.gl_pathv[i];
+        // skip directories and hidden files
+        if (matched_name[strlen(matched_name) - 1] != '/' &&
+            !(pattern[0] == '*' && matched_name[strlen(dir_path) + 1] == '.')) {
+            args[*num_args] = strdup(matched_name); // In case of memory allocation errors
             (*num_args)++;
         }
     }
