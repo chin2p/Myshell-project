@@ -10,6 +10,8 @@
 #include <dirent.h>
 #include <glob.h>
 
+int error = 0;
+
 void process_line(char* line);
 const char *search_paths[] = {
         "/usr/local/sbin/",
@@ -53,29 +55,18 @@ void batch_mode(FILE *fp) {
     }
 }
 
-/*
-//everything is good
-//although we need to have this thing
-//whenever we do cd whateverdirectorythatdoesn'texist  it should print an error message then
-// do this in the write prompt
-// "!mysh> " instead of regular "mysh> "
-//new testing
-//wildcard stuff isn't working properly.
-//one of the testing for redirection also is bit buggy. "echo > baz foo bar"
-echo foo bar > baz
-echo foo > baz bar
-echo > baz foo bar
-These are all same
-Next thing is when we do a wrong command like "l"
-it says, command not found: l
-then if we type exit or EOF
-it still takes input again and if u do exit again then it exits the program.
-*/
+
 
 void interactive_mode() {
     write(STDOUT_FILENO, "Welcome to mysh!\n", 17);
     while (1) {
-        write(STDOUT_FILENO, "mysh> ", 6);
+        if (error) {
+            write(STDOUT_FILENO, "!mysh> ", 7);
+            error = 0;
+        } else {
+            write(STDOUT_FILENO, "mysh> ", 6);
+        }
+       
 
         char command[1024];
         int command_length = 0;
@@ -90,6 +81,7 @@ void interactive_mode() {
         }
 
         if (read_result == -1) {
+            error = 1;
             break;
         }
 
@@ -141,6 +133,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
         }
         if (chdir(path) != 0) {
             perror("cd");
+            error = 1;
         }
         return;
     }
@@ -151,6 +144,8 @@ void execute_command(char** args, int in_fd, int out_fd) {
             fprintf(stdout, "%s\n", cwd);
         } else {
             perror("pwd");
+            error = 1;
+            
         }
         return;
     }
@@ -163,6 +158,8 @@ void execute_command(char** args, int in_fd, int out_fd) {
 
     if (pid == -1) {
         perror("fork");
+        error = 1;
+        
         return; // continue asking for input
     }
 
@@ -183,6 +180,8 @@ void execute_command(char** args, int in_fd, int out_fd) {
 
         if (path == NULL) {
             fprintf(stderr, "Command not found: %s\n", args[0]);
+            error = 1;
+            
             exit(1); 
         }
 
@@ -191,6 +190,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
 
         // execv only returns if there was an error
         perror("execv");
+        error = 1;
         exit(1); // continue asking for input
         
     }
@@ -261,6 +261,7 @@ void process_line(char* line) {
         if (strcmp(token, "|") == 0) {
             if (pipe(pipe_fds) == -1) {
                 perror("Error creating pipe");
+                error = 1;
                 return;
             }
             out_fd = pipe_fds[1];
@@ -269,11 +270,13 @@ void process_line(char* line) {
             token = strtok(NULL, " ");
             if (token == NULL) {
                 fprintf(stderr, "Error: missing file after <\n");
+                error = 1;
                 return;
             }
             in_fd = open(token, O_RDONLY);
             if (in_fd == -1) {
                 perror("Error opening file for input");
+                error = 1;
                 return;
             }
             is_arg = 0;
@@ -281,11 +284,13 @@ void process_line(char* line) {
             token = strtok(NULL, " ");
             if (token == NULL) {
                 fprintf(stderr, "Error: missing file after >\n");
+                error = 1;
                 return;
             }
             out_fd = open(token, O_WRONLY | O_CREAT | O_TRUNC, 0644);
             if (out_fd == -1) {
                 perror("Error opening file for output");
+                error = 1;
                 return;
             }
             is_arg = 0;
