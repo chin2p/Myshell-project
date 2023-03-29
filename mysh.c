@@ -13,7 +13,15 @@
 
 int error = 0; //track the error
 
+//function declarations
+void batch_mode(FILE *fp);
+void interactive_mode();
+void execute_command(char** args, int in_fd, int out_fd);
+void handle_wildcard(char* pattern, char** args, int* num_args);
+char *find_command_path(const char *command);
+char* next_token(char** line);
 void process_line(char* line);
+
 const char *search_paths[] = {
         "/usr/local/sbin/",
         "/usr/local/bin/",
@@ -56,14 +64,6 @@ void batch_mode(FILE *fp) {
     }
 }
 
-
-/*
-//one of the testing for redirection also is bit buggy. "echo > baz foo bar"
-echo foo bar > baz
-echo foo > baz bar
-echo > baz foo bar
-These are all same
-*/
 
 
 void interactive_mode() {
@@ -218,19 +218,24 @@ void execute_command(char** args, int in_fd, int out_fd) {
 }
 
 void handle_wildcard(char* pattern, char** args, int* num_args) {
-    char* dir_path = ".";
+    char* dir_path = NULL;
     char* last_slash = strrchr(pattern, '/');
     if (last_slash != NULL) {
         *last_slash = '\0';
         dir_path = pattern;
         pattern = last_slash + 1;
+    } else {
+        dir_path = ".";
     }
 
     glob_t globbuf;
-    int result = glob(pattern, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR,
-                      NULL, &globbuf);
+    int result = glob(pattern, GLOB_MARK, NULL, &globbuf);
 
-    if (result != 0 && result != GLOB_NOMATCH) {
+    if (result != 0) {
+        if (result == GLOB_NOMATCH) {
+            globfree(&globbuf);
+            return;
+        }
         perror("Error opening directory");
         error = 1;
         return;
@@ -239,8 +244,9 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     for (size_t i = 0; i < globbuf.gl_pathc; ++i) {
         char const *const matched_name = globbuf.gl_pathv[i];
         // skip directories and hidden files
-        if (matched_name[strlen(matched_name) - 1] != '/' &&
-            !(pattern[0] == '*' && matched_name[strlen(dir_path) + 1] == '.')) {
+        if ((matched_name[strlen(matched_name) - 1] != '/') && 
+    (matched_name[strlen(dir_path)] != '.') &&
+    (!(strstr(matched_name + strlen(dir_path), "/.") || strstr(matched_name + strlen(dir_path), "./")))) {
             args[*num_args] = strdup(matched_name); // In case of memory allocation errors
             (*num_args)++;
         }
@@ -254,7 +260,17 @@ char* next_token(char** line) {
     while (**line) {
         if (!token_start && **line != ' ' && **line != '\t' && **line != '\n' && **line != '\r') {
             token_start = *line;
-        } else if (token_start && (**line == ' ' || **line == '\t' || **line == '\n' || **line == '\r')) {
+            if (**line == '<' || **line == '>' || **line == '|') {
+                // If the token starts with a redirection operator, treat it as a single token
+                (*line)++;
+                return strndup(token_start, 1);
+            }
+        } else if (token_start && (**line == ' ' || **line == '\t' || **line == '\n' || **line == '\r' || **line == '<' || **line == '>' || **line == '|')) {
+            // If the token ends with a redirection operator, treat it as a separate token
+            if (**line == '<' || **line == '>' || **line == '|') {
+                (*line)++;
+                return strndup(*line - 1, 1);
+            }
             **line = '\0';
             (*line)++;
             break;
@@ -306,14 +322,32 @@ void process_line(char* line) {
                 fprintf(stderr, "Error: missing file after >\n");
                 return;
             }
+            if (out_fd != STDOUT_FILENO) {
+                // If we already have an output file, close it first
+                close(out_fd);
+            }
+            // Create a new output file
             out_fd = open(token, O_WRONLY | O_CREAT | O_TRUNC, 0644);
             if (out_fd == -1) {
                 perror("Error opening file for output");
                 return;
             }
-            // Discard any remaining tokens on the command line
-            while ((token = next_token(&line)) != NULL) {}
-            break;
+        } else if (strcmp(token, ">>") == 0) {
+            token = next_token(&line);
+            if (token == NULL) {
+                fprintf(stderr, "Error: missing file after >>\n");
+                return;
+            }
+            if (out_fd != STDOUT_FILENO) {
+                // If we already have an output file, close it first
+                close(out_fd);
+            }
+            // Open the output file in append mode
+            out_fd = open(token, O_WRONLY | O_CREAT | O_APPEND, 0644);
+            if (out_fd == -1) {
+                perror("Error opening file for output");
+                return;
+            }
         } else if (strcmp(token, "|") == 0) {
             if (pipe(pipefd) == -1) {
                 perror("Error creating pipe");
