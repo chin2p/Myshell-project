@@ -1,15 +1,27 @@
-This is a simple implementation of a shell program written in C. It reads input commands from either a file or standard input and executes them. The shell supports input/output redirection, and searching for commands in a list of predefined directories.
+We are implementing simple shell program for this project.
+Goal of this project is to
+    - In Interactive mode, read input commands from standard input and execute them.
+    - In batch mode, read commands from a file and execute them.
+    - Support some of the shell features like input/output redirection, handling wildcards, pipes, etc.
+    - If theres any errors we use perror and exit(1).
 
-The process_line function parses the command line arguments and handles input/output redirection. The batch_mode function reads commands from a file and calls process_line to execute them. The interactive_mode function reads commands from standard input and calls process_line to execute them.
+Implementation - 
+- We have two modes, Interactive and batch mode. As said in the goals, we get user input and execute the commands given. We have given directories in
+search_paths array, program searches for the command in one of these directiries and executes them if it finds it. If no command exist, we perror
+and exit(1). The process_line function is called each line of the input. It parses all items in the line and makes it into a list of arguments.
+It handles all the tokens like input/output redirection, wildcard handling, pipes handling. The find_command_path function searches for the command
+in the search_paths directories and returns a path to the executable file of the command if it does exist. The execute_command function forks a child process
+to execute the command. It also includes the built-in functions like cd, pwd. This function used the find_command_path to find commands 
+other than the built-in functions.
 
-The find_command_path function searches for the command in a list of predefined directories. The execute_command function forks a child process and executes the command.
+Extensions - 
+3.2 Home directory
+ - We implemented this extension which just changes working directory to home directory if user inputs cd without any arguments.
 
-Overall, the code looks well-written and organized. However, there are a few issues that should be addressed:
 
-There is no input validation on the length of command line arguments. If an argument is too long, the program will crash.
 
-The input/output redirection implementation is buggy. For example, the command echo > baz foo bar will redirect the output of echo to a file named baz foo bar, rather than just baz. This is because the redirection implementation does not properly handle whitespace in the filename.
+Testing - 
+ - myscript.sh file can be used for testing the batch mode. The file includes different commands and when executed with mysh it
+ executes all those commands in the file. Exits when we encounter "exit" command or EOF.
 
-There is no error handling for some system calls, such as dup2 and close. If these calls fail, the program will continue executing and likely crash.
 
-The execute_command function does not handle errors from the wait call. If the call fails, the program will continue executing and likely crash.
