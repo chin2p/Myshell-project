@@ -1,6 +1,5 @@
-$(CC) = gcc -Wall -fsanitize=address, undefined -c
-
-mysh: $(CC) mysh.c -o mysh
+all: mysh.c
+	gcc -Wall -fsanitize=address -o mysh mysh.c
 
 clean:
-	rm *.o mysh
+	$(RM) mysh
