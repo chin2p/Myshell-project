@@ -2,45 +2,56 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+
+#define MAX_ARGS 10
 
 int main(int argc, char *argv[]) {
-    char *path = getenv("PATH");   // get the PATH environment variable
-    char *dir;                     // pointer to each directory in the PATH
-    char *cmd;                     // pointer to the command we're searching for
-    char prog[256];                // buffer to hold the full path to the command
-    int found = 0;                 // flag to indicate if we've found the command
-    
-    // check if the PATH environment variable exists
-    if (path == NULL) {
-        fprintf(stderr, "Error: PATH environment variable is not set.\n");
-        exit(1);
-    }
-    
-    // copy the command we're searching for (i.e. "ls") into a buffer
-    cmd = argv[1];
-    
-    // loop through each directory in the PATH
-    while ((dir = strsep(&path, ":")) != NULL) {
-        // build the full path to the command by concatenating the directory and command names
-        sprintf(prog, "%s/%s", dir, cmd);
-        
-        // check if the file exists and is executable
-        if (access(prog, X_OK) == 0) {
-            // found the command, set the flag and break out of the loop
-            found = 1;
-            break;
+    char *args[MAX_ARGS];
+    char *input_file = NULL, *output_file = NULL;
+    int i, in_fd, out_fd;
+
+    for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "<") == 0) {
+            input_file = argv[i + 1];
+            i++;
+        } else if (strcmp(argv[i], ">") == 0) {
+            output_file = argv[i + 1];
+            i++;
+        } else {
+            args[i - 1] = argv[i];
         }
     }
-    
-    if (!found) {
-        fprintf(stderr, "Error: %s command not found.\n", cmd);
-        exit(1);
+
+    args[i - 1] = NULL;
+
+    if (input_file != NULL) {
+        in_fd = open(input_file, O_RDONLY);
+        if (in_fd == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+        if (dup2(in_fd, STDIN_FILENO) == -1) {
+            perror("dup2");
+            exit(EXIT_FAILURE);
+        }
+        close(in_fd);
     }
-    
-    // execute the command with any arguments that were passed in
-    execv(prog, argv + 1);
-    
-    // if execv returns, there was an error
-    fprintf(stderr, "Error: failed to execute %s.\n", cmd);
-    exit(1);
+
+    if (output_file != NULL) {
+        out_fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+        if (out_fd == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+        if (dup2(out_fd, STDOUT_FILENO) == -1) {
+            perror("dup2");
+            exit(EXIT_FAILURE);
+        }
+        close(out_fd);
+    }
+
+    execvp(args[0], args);
+    perror("execvp");
+    exit(EXIT_FAILURE);
 }
