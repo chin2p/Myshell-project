@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <glob.h>
+#include <ctype.h>
 
 int error = 0; //track the error
 
@@ -57,7 +58,6 @@ void batch_mode(FILE *fp) {
 
 
 /*
-
 //one of the testing for redirection also is bit buggy. "echo > baz foo bar"
 echo foo bar > baz
 echo foo > baz bar
@@ -249,6 +249,21 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     globfree(&globbuf);
 }
 
+char* next_token(char** line) {
+    char* token_start = NULL;
+    while (**line) {
+        if (!token_start && **line != ' ' && **line != '\t' && **line != '\n' && **line != '\r') {
+            token_start = *line;
+        } else if (token_start && (**line == ' ' || **line == '\t' || **line == '\n' || **line == '\r')) {
+            **line = '\0';
+            (*line)++;
+            break;
+        }
+        (*line)++;
+    }
+    return token_start;
+}
+
 
 void process_line(char* line) {
     // Check if line is empty
@@ -265,77 +280,74 @@ void process_line(char* line) {
         return;
     }
 
-    
-
     char* args[1024];
     int arg_index = 0;
-    int is_arg = 1;
 
     int in_fd = STDIN_FILENO;
     int out_fd = STDOUT_FILENO;
-    int pipe_fds[2] = {-1, -1};
+    int pipefd[2] = {-1, -1};
 
-    char* token = strtok(line, " ");
+    char* token = next_token(&line);
     while (token != NULL) {
-        if (strcmp(token, "|") == 0) {
-            if (pipe(pipe_fds) == -1) {
-                perror("Error creating pipe");
-                error = 1;
-                return;
-            }
-            out_fd = pipe_fds[1];
-            is_arg = 0;
-        } else if (strcmp(token, "<") == 0) {
-            token = strtok(NULL, " ");
+        if (strcmp(token, "<") == 0) {
+            token = next_token(&line);
             if (token == NULL) {
                 fprintf(stderr, "Error: missing file after <\n");
-                error = 1;
                 return;
             }
             in_fd = open(token, O_RDONLY);
             if (in_fd == -1) {
                 perror("Error opening file for input");
-                error = 1;
                 return;
             }
-            is_arg = 0;
         } else if (strcmp(token, ">") == 0) {
-            token = strtok(NULL, " ");
+            token = next_token(&line);
             if (token == NULL) {
                 fprintf(stderr, "Error: missing file after >\n");
-                error = 1;
                 return;
             }
             out_fd = open(token, O_WRONLY | O_CREAT | O_TRUNC, 0644);
             if (out_fd == -1) {
                 perror("Error opening file for output");
-                error = 1;
                 return;
             }
-            is_arg = 0;
-        } else if (strchr(token, '*') != NULL) {
-            handle_wildcard(token, args, &arg_index);
-            is_arg = 0;
+            // Discard any remaining tokens on the command line
+            while ((token = next_token(&line)) != NULL) {}
+            break;
+        } else if (strcmp(token, "|") == 0) {
+            if (pipe(pipefd) == -1) {
+                perror("Error creating pipe");
+                return;
+            }
+            out_fd = pipefd[1];
+            // Discard any remaining tokens on the command line
+            while ((token = next_token(&line)) != NULL) {}
+            break;
         } else {
             args[arg_index++] = token;
-            is_arg = 1;
         }
-
-        if (out_fd != STDOUT_FILENO && !is_arg) {
-            args[arg_index] = NULL;
-            execute_command(args, in_fd, out_fd);
-            arg_index = 0;
-            in_fd = pipe_fds[0];
-            out_fd = STDOUT_FILENO;
-            close(pipe_fds[1]);
-        }
-
-        token = strtok(NULL, " ");
+        token = next_token(&line);
     }
 
     if (arg_index > 0) {
         args[arg_index] = NULL;
         execute_command(args, in_fd, out_fd);
+    } else {
+        // No command specified, just output an empty line to the file
+        dprintf(out_fd, "\n");
+    }
+
+    if (in_fd != STDIN_FILENO) {
+        close(in_fd);
+    }
+    if (out_fd != STDOUT_FILENO) {
+        close(out_fd);
+    }
+    if (pipefd[0] != -1) {
+        close(pipefd[0]);
+    }
+    if (pipefd[1] != -1) {
+        close(pipefd[1]);
     }
 }
 
