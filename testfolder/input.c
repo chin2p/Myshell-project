@@ -210,24 +210,19 @@ void execute_command(char** args, int in_fd, int out_fd) {
 }
 
 void handle_wildcard(char* pattern, char** args, int* num_args) {
-    char* dir_path = NULL;
+    char* dir_path = ".";
     char* last_slash = strrchr(pattern, '/');
     if (last_slash != NULL) {
         *last_slash = '\0';
         dir_path = pattern;
         pattern = last_slash + 1;
-    } else {
-        dir_path = ".";
     }
 
     glob_t globbuf;
-    int result = glob(pattern, GLOB_MARK, NULL, &globbuf);
+    int result = glob(pattern, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR,
+                      NULL, &globbuf);
 
-    if (result != 0) {
-        if (result == GLOB_NOMATCH) {
-            globfree(&globbuf);
-            return;
-        }
+    if (result != 0 && result != GLOB_NOMATCH) {
         perror("Error opening directory");
         error = 1;
         return;
@@ -236,9 +231,8 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     for (size_t i = 0; i < globbuf.gl_pathc; ++i) {
         char const *const matched_name = globbuf.gl_pathv[i];
         // skip directories and hidden files
-        if ((matched_name[strlen(matched_name) - 1] != '/') && 
-    (matched_name[strlen(dir_path)] != '.') &&
-    (!(strstr(matched_name + strlen(dir_path), "/.") || strstr(matched_name + strlen(dir_path), "./")))) {
+        if (matched_name[strlen(matched_name) - 1] != '/' &&
+            !(pattern[0] == '*' && matched_name[strlen(dir_path) + 1] == '.')) {
             args[*num_args] = strdup(matched_name); // In case of memory allocation errors
             (*num_args)++;
         }
