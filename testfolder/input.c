@@ -57,14 +57,6 @@ void batch_mode(FILE *fp) {
 }
 
 
-/*
-//one of the testing for redirection also is bit buggy. "echo > baz foo bar"
-echo foo bar > baz
-echo foo > baz bar
-echo > baz foo bar
-These are all same
-*/
-
 
 void interactive_mode() {
     write(STDOUT_FILENO, "Welcome to mysh!\n", 17);
