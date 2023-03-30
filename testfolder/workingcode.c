@@ -10,7 +10,9 @@
 #include <dirent.h>
 #include <glob.h>
 #include <ctype.h>
+
 int error = 0; //track the error
+
 void process_line(char* line);
 const char *search_paths[] = {
         "/usr/local/sbin/",
@@ -348,5 +350,6 @@ int main(int argc, char** argv) {
     }
     return 0;
 }
+
 
 
