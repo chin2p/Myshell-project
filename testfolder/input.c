@@ -13,6 +13,9 @@
 
 int error = 0; //track the error
 
+//function declarations
+void batch_mode(FILE *fp);
+void interactive_mode();
 void process_line(char* line);
 void execute_command(char** args, int in_fd, int out_fd);
 void handle_wildcard(char* pattern, char** args, int* num_args);
@@ -108,7 +111,27 @@ void interactive_mode() {
     write(STDOUT_FILENO, "Goodbye!\n", 9);
 }
 
+//main func
 
+int main(int argc, char** argv) {
+    if (argc > 1) {
+        int fd = open(argv[1], O_RDONLY);
+        if (fd == -1) {
+            perror("Error opening file");
+            return 1;
+        }
+        // redirect standard input to the opened file descriptor
+        dup2(fd, STDIN_FILENO);
+
+        batch_mode(stdin);
+
+        close(fd);      // close the opened file descriptor
+    } else {
+        interactive_mode();
+    }
+
+    return 0;
+}
 
 
 char *find_command_path(const char *command) {
@@ -217,7 +240,6 @@ void execute_command(char** args, int in_fd, int out_fd) {
 }
 
 void handle_wildcard(char* pattern, char** args, int* num_args) {
-    
     char* dir_path = ".";
     char* last_slash = strrchr(pattern, '/');
     if (last_slash != NULL) {
@@ -247,9 +269,6 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     }
 
     globfree(&globbuf);
-    
-
-
 }
 
 char* next_token(char** line) {
@@ -387,6 +406,4 @@ void process_line(char* line) {
     }
 }
 
-
-//main func
 
