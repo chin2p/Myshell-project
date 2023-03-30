@@ -16,11 +16,11 @@ int error = 0; //track the error
 //function declarations
 void batch_mode(FILE *fp);
 void interactive_mode();
+void process_line(char* line);
 void execute_command(char** args, int in_fd, int out_fd);
 void handle_wildcard(char* pattern, char** args, int* num_args);
 char *find_command_path(const char *command);
-char* next_token(char** line);
-void process_line(char* line);
+char *next_token(char** line);
 
 const char *search_paths[] = {
         "/usr/local/sbin/",
@@ -111,6 +111,28 @@ void interactive_mode() {
     write(STDOUT_FILENO, "Goodbye!\n", 9);
 }
 
+//main func
+
+int main(int argc, char** argv) {
+    if (argc > 1) {
+        int fd = open(argv[1], O_RDONLY);
+        if (fd == -1) {
+            perror("Error opening file");
+            return 1;
+        }
+        // redirect standard input to the opened file descriptor
+        dup2(fd, STDIN_FILENO);
+
+        batch_mode(stdin);
+
+        close(fd);      // close the opened file descriptor
+    } else {
+        interactive_mode();
+    }
+
+    return 0;
+}
+
 
 char *find_command_path(const char *command) {
     struct stat sb;
@@ -124,11 +146,9 @@ char *find_command_path(const char *command) {
         if (stat(path, &sb) == 0 && sb.st_mode & S_IXUSR) {
             return path;
         }
-
         free(path);
         path = NULL;
     }
-
     return NULL;
 }
 
@@ -218,24 +238,19 @@ void execute_command(char** args, int in_fd, int out_fd) {
 }
 
 void handle_wildcard(char* pattern, char** args, int* num_args) {
-    char* dir_path = NULL;
+    char* dir_path = ".";
     char* last_slash = strrchr(pattern, '/');
     if (last_slash != NULL) {
         *last_slash = '\0';
         dir_path = pattern;
         pattern = last_slash + 1;
-    } else {
-        dir_path = ".";
     }
 
     glob_t globbuf;
-    int result = glob(pattern, GLOB_MARK, NULL, &globbuf);
+    int result = glob(pattern, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR,
+                      NULL, &globbuf);
 
-    if (result != 0) {
-        if (result == GLOB_NOMATCH) {
-            globfree(&globbuf);
-            return;
-        }
+    if (result != 0 && result != GLOB_NOMATCH) {
         perror("Error opening directory");
         error = 1;
         return;
@@ -244,9 +259,8 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     for (size_t i = 0; i < globbuf.gl_pathc; ++i) {
         char const *const matched_name = globbuf.gl_pathv[i];
         // skip directories and hidden files
-        if ((matched_name[strlen(matched_name) - 1] != '/') && 
-    (matched_name[strlen(dir_path)] != '.') &&
-    (!(strstr(matched_name + strlen(dir_path), "/.") || strstr(matched_name + strlen(dir_path), "./")))) {
+        if (matched_name[strlen(matched_name) - 1] != '/' &&
+            !(pattern[0] == '*' && matched_name[strlen(dir_path) + 1] == '.')) {
             args[*num_args] = strdup(matched_name); // In case of memory allocation errors
             (*num_args)++;
         }
@@ -358,7 +372,12 @@ void process_line(char* line) {
             while ((token = next_token(&line)) != NULL) {}
             break;
         } else {
-            args[arg_index++] = token;
+            int num_args_before = arg_index;
+            handle_wildcard(token, args, &arg_index);
+            if (arg_index == num_args_before) {
+                // No wildcard expansion was performed, add the original token
+                args[arg_index++] = token;
+            }
         }
         token = next_token(&line);
     }
@@ -386,27 +405,3 @@ void process_line(char* line) {
 }
 
 
-
-
-//main func
-
-
-int main(int argc, char** argv) {
-    if (argc > 1) {
-        int fd = open(argv[1], O_RDONLY);
-        if (fd == -1) {
-            perror("Error opening file");
-            return 1;
-        }
-        // redirect standard input to the opened file descriptor
-        dup2(fd, STDIN_FILENO);
-
-        batch_mode(stdin);
-
-        close(fd);      // close the opened file descriptor
-    } else {
-        interactive_mode();
-    }
-
-    return 0;
-}
