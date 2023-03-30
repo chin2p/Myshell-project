@@ -178,10 +178,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
     if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
         error = 1;
     }
-   
-    
 }
-
 void handle_wildcard(char* pattern, char** args, int* num_args) {
     char* dir_path = ".";
     char* last_slash = strrchr(pattern, '/');
@@ -192,8 +189,7 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     }
 
     glob_t globbuf;
-    int result = glob(pattern, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR,
-                      NULL, &globbuf);
+    int result = glob(pattern, GLOB_MARK | GLOB_BRACE | GLOB_TILDE | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR, NULL, &globbuf);
 
     if (result != 0 && result != GLOB_NOMATCH) {
         perror("Error opening directory");
@@ -211,6 +207,7 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     }
     globfree(&globbuf);
 }
+
 
 char* next_token(char** line) {
     char* token_start = NULL;
@@ -250,12 +247,14 @@ void process_line(char* line) {
     if (i == len) {
         return;
     }
+
     char* args[1024];
     int arg_index = 0;
     int in_fd = STDIN_FILENO;
     int out_fd = STDOUT_FILENO;
     int pipefd[2] = {-1, -1};
     char* token = next_token(&line);
+
     while (token != NULL) {
         if (strcmp(token, "<") == 0) {
             token = next_token(&line);
@@ -310,10 +309,17 @@ void process_line(char* line) {
             while ((token = next_token(&line)) != NULL) {}
             break;
         } else {
-            args[arg_index++] = token;
+            // Check if token contains a wildcard character
+            if (strchr(token, '*') != NULL) {
+                // Handle wildcard expansion
+                handle_wildcard(token, args, &arg_index);
+            } else {
+                args[arg_index++] = token;
+            }
         }
         token = next_token(&line);
     }
+
     if (arg_index > 0) {
         args[arg_index] = NULL;
         execute_command(args, in_fd, out_fd);
