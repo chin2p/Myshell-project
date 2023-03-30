@@ -93,13 +93,15 @@ char *find_command_path(const char *command) {
     char *path = NULL;
     for (int i = 0; search_paths[i] != NULL; ++i) {
         path = malloc(strlen(search_paths[i]) + strlen(command) + 1);
+        if (path == NULL) {
+            return NULL;
+        }
         strcpy(path, search_paths[i]);
         strcat(path, command);
         if (stat(path, &sb) == 0 && sb.st_mode & S_IXUSR) {
             return path;
         }
         free(path);
-        path = NULL;
     }
     free(path);
     return NULL;
