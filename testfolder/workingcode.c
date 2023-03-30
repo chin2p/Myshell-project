@@ -10,18 +10,8 @@
 #include <dirent.h>
 #include <glob.h>
 #include <ctype.h>
-
 int error = 0; //track the error
-
-//function declarations
-void batch_mode(FILE *fp);
-void interactive_mode();
 void process_line(char* line);
-void execute_command(char** args, int in_fd, int out_fd);
-void handle_wildcard(char* pattern, char** args, int* num_args);
-char *find_command_path(const char *command);
-char *next_token(char** line);
-
 const char *search_paths[] = {
         "/usr/local/sbin/",
         "/usr/local/bin/",
@@ -31,18 +21,14 @@ const char *search_paths[] = {
         "/bin/",
         NULL
 };
-
 //batch mode seems to be working fine for now, will do more testing
-
 void batch_mode(FILE *fp) {
     char line[1024];
     int index = 0;
     int c;
-
     while ((c = getc(fp)) != EOF) {
         if (c == '\n') {
             line[index] = '\0';
-
             if (strcmp(line, "exit") == 0) {
                 break;
             }
@@ -63,9 +49,6 @@ void batch_mode(FILE *fp) {
         }
     }
 }
-
-
-
 void interactive_mode() {
     write(STDOUT_FILENO, "Welcome to mysh!\n", 17);
     while (1) {
@@ -77,83 +60,47 @@ void interactive_mode() {
             write(STDOUT_FILENO, "mysh> ", 6);
         }
        
-
         char command[1024];
         int command_length = 0;
         char ch;
         ssize_t read_result;
-
         while ((read_result = read(STDIN_FILENO, &ch, 1)) > 0) {
             if (ch == '\n') {
                 break;
             }
             command[command_length++] = ch;
         }
-
         if (read_result == -1) {
             error = 1;
             exit(1);
         }
-
         if (read_result == 0) { // EOF
             break;
         }
-
         command[command_length] = '\0';
-
         if (strcmp(command, "exit") == 0) {
             break;
         }
-
         process_line(command);
         
     }
     write(STDOUT_FILENO, "Goodbye!\n", 9);
 }
-
-//main func
-
-int main(int argc, char** argv) {
-    if (argc > 1) {
-        int fd = open(argv[1], O_RDONLY);
-        if (fd == -1) {
-            perror("Error opening file");
-            return 1;
-        }
-        // redirect standard input to the opened file descriptor
-        dup2(fd, STDIN_FILENO);
-
-        batch_mode(stdin);
-
-        close(fd);      // close the opened file descriptor
-    } else {
-        interactive_mode();
-    }
-
-    return 0;
-}
-
-
 char *find_command_path(const char *command) {
     struct stat sb;
     char *path = NULL;
-
     for (int i = 0; search_paths[i] != NULL; ++i) {
         path = malloc(strlen(search_paths[i]) + strlen(command) + 1);
         strcpy(path, search_paths[i]);
         strcat(path, command);
-
         if (stat(path, &sb) == 0 && sb.st_mode & S_IXUSR) {
             return path;
         }
-
         free(path);
         path = NULL;
     }
-
     return NULL;
 }
-
 void execute_command(char** args, int in_fd, int out_fd) {
     if (strcmp(args[0], "cd") == 0) {
         char *path = args[1];
@@ -171,7 +118,6 @@ void execute_command(char** args, int in_fd, int out_fd) {
         }
         return;
     }
-
     if (strcmp(args[0], "pwd") == 0) {
         char cwd[1024];
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
@@ -189,29 +135,24 @@ void execute_command(char** args, int in_fd, int out_fd) {
     }
     
     pid_t pid = fork();
-
     if (pid == -1) {
         perror("fork");
         error = 1;
         
         return; // continue asking for input
     }
-
     if (pid == 0) {  // child process
         // Redirect input and output
         if (in_fd != STDIN_FILENO) {
             dup2(in_fd, STDIN_FILENO);
             close(in_fd);
         }
-
         if (out_fd != STDOUT_FILENO) {
             dup2(out_fd, STDOUT_FILENO);
             close(out_fd);
         }
-
         // Search for the command in the paths
         char *path = find_command_path(args[0]);
-
         if (path == NULL) {
             
             fprintf(stderr, "Command not found: %s\n", args[0]);
@@ -221,7 +162,6 @@ void execute_command(char** args, int in_fd, int out_fd) {
         
         // Execute the command
         execv(path, args);
-
         // execv only returns if there was an error
         perror("execv");
         error = 1;
@@ -256,8 +196,7 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
         perror("Error opening directory");
         error = 1;
         return;
-    }
-
+    } // added closing bracket here
     for (size_t i = 0; i < globbuf.gl_pathc; ++i) {
         char const *const matched_name = globbuf.gl_pathv[i];
         // skip directories and hidden files
@@ -267,7 +206,6 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
             (*num_args)++;
         }
     }
-
     globfree(&globbuf);
 }
 
@@ -295,8 +233,6 @@ char* next_token(char** line) {
     }
     return token_start;
 }
-
-
 void process_line(char* line) {
     // Check if line is empty
     int len = strlen(line);
@@ -311,14 +247,11 @@ void process_line(char* line) {
     if (i == len) {
         return;
     }
-
     char* args[1024];
     int arg_index = 0;
-
     int in_fd = STDIN_FILENO;
     int out_fd = STDOUT_FILENO;
     int pipefd[2] = {-1, -1};
-
     char* token = next_token(&line);
     while (token != NULL) {
         if (strcmp(token, "<") == 0) {
@@ -374,16 +307,10 @@ void process_line(char* line) {
             while ((token = next_token(&line)) != NULL) {}
             break;
         } else {
-            int num_args_before = arg_index;
-            handle_wildcard(token, args, &arg_index);
-            if (arg_index == num_args_before) {
-                // No wildcard expansion was performed, add the original token
-                args[arg_index++] = token;
-            }
+            args[arg_index++] = token;
         }
         token = next_token(&line);
     }
-
     if (arg_index > 0) {
         args[arg_index] = NULL;
         execute_command(args, in_fd, out_fd);
@@ -391,7 +318,6 @@ void process_line(char* line) {
         // No command specified, just output an empty line to the file
         dprintf(out_fd, "\n");
     }
-
     if (in_fd != STDIN_FILENO) {
         close(in_fd);
     }
@@ -404,6 +330,23 @@ void process_line(char* line) {
     if (pipefd[1] != -1) {
         close(pipefd[1]);
     }
+}
+//main func
+int main(int argc, char** argv) {
+    if (argc > 1) {
+        int fd = open(argv[1], O_RDONLY);
+        if (fd == -1) {
+            perror("Error opening file");
+            return 1;
+        }
+        // redirect standard input to the opened file descriptor
+        dup2(fd, STDIN_FILENO);
+        batch_mode(stdin);
+        close(fd);      // close the opened file descriptor
+    } else {
+        interactive_mode();
+    }
+    return 0;
 }
 
 
