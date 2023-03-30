@@ -101,6 +101,7 @@ char *find_command_path(const char *command) {
         free(path);
         path = NULL;
     }
+    free(path);
     return NULL;
 }
 void execute_command(char** args, int in_fd, int out_fd) {
