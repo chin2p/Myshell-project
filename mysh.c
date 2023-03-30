@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <glob.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 int error = 0; //track the error
 
@@ -211,28 +212,50 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
 
 char* next_token(char** line) {
     char* token_start = NULL;
+    bool in_escape_sequence = false;
     while (**line) {
-        if (!token_start && **line != ' ' && **line != '\t' && **line != '\n' && **line != '\r') {
-            token_start = *line;
-            if (**line == '<' || **line == '>' || **line == '|') {
-                // If the token starts with a redirection operator, treat it as a single token
+        if (**line == '\\' && !in_escape_sequence) {
+            in_escape_sequence = true;
+            (*line)++;
+            continue;
+        } else if (**line == '\n' && in_escape_sequence) {
+            // Remove both characters from the token
+            in_escape_sequence = false;
+            (*line)++;
+            continue;
+        } else if (**line == ' ' && !in_escape_sequence) {
+            if (token_start) {
+                int token_len = *line - token_start;
+                char* token = strndup(token_start, token_len);
+                **line = '\0';
                 (*line)++;
-                return strndup(token_start, 1);
+                return token;
             }
-        } else if (token_start && (**line == ' ' || **line == '\t' || **line == '\n' || **line == '\r' || **line == '<' || **line == '>' || **line == '|')) {
-            // If the token ends with a redirection operator, treat it as a separate token
+        } else if (**line == '<' || **line == '>' || **line == '|' || in_escape_sequence) {
+            if (token_start) {
+                int token_len = *line - token_start;
+                char* token = strndup(token_start, token_len - in_escape_sequence);
+                **line = '\0';
+                (*line)++;
+                return token;
+            }
             if (**line == '<' || **line == '>' || **line == '|') {
                 (*line)++;
                 return strndup(*line - 1, 1);
             }
-            **line = '\0';
-            (*line)++;
-            break;
+        } else if (!token_start) {
+            token_start = *line;
         }
+        in_escape_sequence = false;
         (*line)++;
     }
-    return token_start;
+    if (token_start) {
+        int token_len = *line - token_start;
+        return strndup(token_start, token_len);
+    }
+    return NULL;
 }
+
 void process_line(char* line) {
     // Check if line is empty
     int len = strlen(line);
