@@ -13,8 +13,8 @@
 
 int error = 0; //track the error
 
-
 void process_line(char* line);
+
 const char *search_paths[] = {
         "/usr/local/sbin/",
         "/usr/local/bin/",
@@ -377,7 +377,6 @@ void process_line(char* line) {
         close(pipefd[1]);
     }
 }
-
 
 
 //main func

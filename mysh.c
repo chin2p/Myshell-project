@@ -13,7 +13,15 @@
 
 int error = 0; //track the error
 
+//function declarations
+void batch_mode(FILE *fp);
+void interactive_mode();
+void execute_command(char** args, int in_fd, int out_fd);
+void handle_wildcard(char* pattern, char** args, int* num_args);
+char *find_command_path(const char *command);
+char* next_token(char** line);
 void process_line(char* line);
+
 const char *search_paths[] = {
         "/usr/local/sbin/",
         "/usr/local/bin/",
