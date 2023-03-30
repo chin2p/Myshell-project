@@ -1,5 +1,5 @@
 all: mysh.c
-	gcc -Wall -fsanitize=address -o mysh mysh.c
+	gcc -Wall -o mysh mysh.c
 
 clean:
 	$(RM) mysh
