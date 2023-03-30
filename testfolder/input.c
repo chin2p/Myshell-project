@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +21,7 @@ void process_line(char* line);
 void execute_command(char** args, int in_fd, int out_fd);
 void handle_wildcard(char* pattern, char** args, int* num_args);
 char *find_command_path(const char *command);
-char* next_token(char** line);
+char *next_token(char** line);
 
 const char *search_paths[] = {
         "/usr/local/sbin/",
@@ -374,7 +375,12 @@ void process_line(char* line) {
             while ((token = next_token(&line)) != NULL) {}
             break;
         } else {
-            args[arg_index++] = token;
+            int num_args_before = arg_index;
+            handle_wildcard(token, args, &arg_index);
+            if (arg_index == num_args_before) {
+                // No wildcard expansion was performed, add the original token
+                args[arg_index++] = token;
+            }
         }
         token = next_token(&line);
     }
@@ -400,7 +406,6 @@ void process_line(char* line) {
         close(pipefd[1]);
     }
 }
-
 
 
 
