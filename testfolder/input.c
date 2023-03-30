@@ -13,6 +13,7 @@
 
 int error = 0; //track the error
 
+
 void process_line(char* line);
 const char *search_paths[] = {
         "/usr/local/sbin/",
@@ -102,6 +103,8 @@ void interactive_mode() {
     }
     write(STDOUT_FILENO, "Goodbye!\n", 9);
 }
+
+
 
 
 char *find_command_path(const char *command) {
@@ -210,6 +213,7 @@ void execute_command(char** args, int in_fd, int out_fd) {
 }
 
 void handle_wildcard(char* pattern, char** args, int* num_args) {
+    
     char* dir_path = ".";
     char* last_slash = strrchr(pattern, '/');
     if (last_slash != NULL) {
@@ -239,6 +243,9 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
     }
 
     globfree(&globbuf);
+    
+
+
 }
 
 char* next_token(char** line) {
@@ -373,9 +380,7 @@ void process_line(char* line) {
 
 
 
-
 //main func
-
 
 int main(int argc, char** argv) {
     if (argc > 1) {
