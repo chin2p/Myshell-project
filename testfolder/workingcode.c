@@ -10,7 +10,9 @@
 #include <dirent.h>
 #include <glob.h>
 #include <ctype.h>
+
 int error = 0; //track the error
+
 void process_line(char* line);
 const char *search_paths[] = {
         "/usr/local/sbin/",
@@ -99,6 +101,7 @@ char *find_command_path(const char *command) {
         free(path);
         path = NULL;
     }
+    free(path);
     return NULL;
 }
 void execute_command(char** args, int in_fd, int out_fd) {
@@ -348,5 +351,7 @@ int main(int argc, char** argv) {
     }
     return 0;
 }
+
+
 
 
