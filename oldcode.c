@@ -196,17 +196,6 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
         perror("Error opening directory");
         error = 1;
         return;
-
-    
-        
-          
-    
-
-        
-    
-    @@ -236,9 +231,8 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
-  
-    }
     for (size_t i = 0; i < globbuf.gl_pathc; ++i) {
         char const *const matched_name = globbuf.gl_pathv[i];
         // skip directories and hidden files
@@ -215,16 +204,6 @@ void handle_wildcard(char* pattern, char** args, int* num_args) {
             args[*num_args] = strdup(matched_name); // In case of memory allocation errors
             (*num_args)++;
         }
-
-    
-          
-            
-    
-
-          
-    
-    
-  
     }
     globfree(&globbuf);
 }
