@@ -14,6 +14,11 @@ in the search_paths directories and returns a path to the executable file of the
 to execute the command. It also includes the built-in functions like cd, pwd. This function used the find_command_path to find commands 
 other than the built-in functions.
 
+
+Since we were able to handle the implementation of this on our own we decided to cd some_dir first executes then touch.
+touch foo | cd some_dir
+cd some_dir | pwd
+
 Extensions - 
 
 3.1 Escape Sequence
