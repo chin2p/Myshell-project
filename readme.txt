@@ -15,6 +15,11 @@ to execute the command. It also includes the built-in functions like cd, pwd. Th
 other than the built-in functions.
 
 Extensions - 
+
+3.1 Escape Sequence
+ - We implemented this extension which allows escaping of special characters. As said in the file it removes the special handling
+ of the character following it.
+
 3.2 Home directory
  - We implemented this extension which just changes working directory to home directory if user inputs cd without any arguments.
 
@@ -23,5 +28,6 @@ Extensions -
 Testing - 
  - myscript.sh file can be used for testing the batch mode. The file includes different commands and when executed with mysh it
  executes all those commands in the file. Exits when we encounter "exit" command or EOF.
+ - Interactive mode can just be tested by executing the makefile and ./mysh to start the program.
 
 
