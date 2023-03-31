@@ -33,6 +33,6 @@ Extensions -
 Testing - 
  - myscript.sh file can be used for testing the batch mode. The file includes different commands and when executed with mysh it
  executes all those commands in the file. Exits when we encounter "exit" command or EOF.
- - Interactive mode can just be tested by executing the makefile and ./mysh to start the program.
+ - Interactive mode can just be tested by executing the makefile and ./mysh to start the program and write the commands
 
 
