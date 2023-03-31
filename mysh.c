@@ -179,6 +179,14 @@ void execute_command(char** args, int in_fd, int out_fd) {
     if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
         error = 1;
     }
+    
+    // If a pipe was used, close it and execute the next command
+    if (in_fd != STDIN_FILENO) {
+        close(in_fd);
+    }
+    if (out_fd != STDOUT_FILENO) {
+        close(out_fd);
+    }
 }
 void handle_wildcard(char* pattern, char** args, int* num_args) {
     char* dir_path = ".";
@@ -328,9 +336,24 @@ void process_line(char* line) {
                 return;
             }
             out_fd = pipefd[1];
-            // Discard any remaining tokens on the command line
-            while ((token = next_token(&line)) != NULL) {}
-            break;
+            // Execute the command with the current arguments
+            if (arg_index > 0) {
+                args[arg_index] = NULL;
+                execute_command(args, in_fd, out_fd);
+            } else {
+                // No command specified, just output an empty line to the file
+                dprintf(out_fd, "\n");
+            }
+            if (in_fd != STDIN_FILENO) {
+                close(in_fd);
+            }
+            if (out_fd != STDOUT_FILENO) {
+                close(out_fd);
+            }
+            // Set up for the next command in the pipeline
+            in_fd = pipefd[0];
+            out_fd = STDOUT_FILENO;
+            arg_index = 0;
         } else {
             // Check if token contains a wildcard character
             if (strchr(token, '*') != NULL) {
@@ -362,6 +385,9 @@ void process_line(char* line) {
     if (pipefd[1] != -1) {
         close(pipefd[1]);
     }
+    if (strcmp(args[0], "exit") == 0) {
+        exit(0);
+    }
 }
 //main func
 int main(int argc, char** argv) {
@@ -380,6 +406,7 @@ int main(int argc, char** argv) {
     }
     return 0;
 }
+
 
 
 
