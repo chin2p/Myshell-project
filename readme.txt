@@ -1,3 +1,4 @@
+Chirantan Patel (csp126) & Hamad Naveed (hn197)
 We are implementing simple shell program for this project.
 Goal of this project is to
     - In Interactive mode, read input commands from standard input and execute them.
